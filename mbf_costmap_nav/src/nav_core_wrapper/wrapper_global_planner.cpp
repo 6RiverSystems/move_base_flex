@@ -55,7 +55,7 @@ uint32_t WrapperGlobalPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   bool success = nav_core_plugin_->makePlan(start, goal, plan, cost);
 #else
   // Indigo
-  bool success = nav_core_plugin_->makePlan(start, goal, plan);
+  bool success = nav_core_plugin_->makePlan(start, goal, tolerance, plan);
   cost = 0;
 #endif
   message = success ? "Plan found" : "Planner failed";

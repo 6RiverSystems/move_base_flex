@@ -65,6 +65,7 @@ void PlannerAction::run(GoalHandle &goal_handle, AbstractPlannerExecution &execu
   result.path.header.frame_id = robot_info_.getGlobalFrame();
 
   double tolerance = goal.tolerance;
+  ROS_INFO_STREAM("PlannerAction run function goal.tolerance value is:"<< goal.tolerance);
   bool use_start_pose = goal.use_start_pose;
   current_goal_pub_.publish(goal.target_pose);
 
