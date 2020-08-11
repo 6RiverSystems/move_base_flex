@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(mbf_costmap_nav)
 
+set (CMAKE_CXX_STANDARD 11)
+
 find_package(catkin REQUIRED
   COMPONENTS
   costmap_2d
@@ -103,6 +105,10 @@ install(TARGETS
 
 install(DIRECTORY include/${PROJECT_NAME}/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+)
+
+install(DIRECTORY config/
+	DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/config
 )
 
 install(PROGRAMS scripts/move_base_legacy_relay.py

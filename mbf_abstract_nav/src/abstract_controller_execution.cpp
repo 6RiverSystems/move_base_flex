@@ -39,6 +39,7 @@
  */
 
 #include <mbf_msgs/ExePathResult.h>
+#include <mbf_utility/thread_affinity.h>
 
 #include "mbf_abstract_nav/abstract_controller_execution.h"
 
@@ -101,8 +102,12 @@ void AbstractControllerExecution::reconfigure(const MoveBaseFlexConfig &config)
 
   setControllerFrequency(config.controller_frequency);
 
-  max_retries_ = config.controller_max_retries;
-}
+    max_retries_ = config.controller_max_retries;
+
+    thread_affinity_ = config.controller_thread_affinity;
+   
+    thread_nice_ = config.controller_thread_nice;
+  }
 
 
 bool AbstractControllerExecution::start()
@@ -294,6 +299,26 @@ void AbstractControllerExecution::run()
   try
   {
     while (moving_ && ros::ok())
+    // Set the affinitiy for this thread
+    niceThread("controller", thread_nice_);
+
+    if (thread_affinity_ >= 0)
+    {
+      if (setThreadAffinity(thread_affinity_))
+      {
+        ROS_INFO("Set controller thread affinity to %d", thread_affinity_);
+      }
+      else
+      {
+        ROS_WARN("Could not set controller thread affinity to %d", thread_affinity_);
+      }
+    }
+
+    start_time_ = ros::Time::now();
+
+    // init plan
+    std::vector<geometry_msgs::PoseStamped> plan;
+    if (!hasNewPlan())
     {
       boost::chrono::thread_clock::time_point loop_start_time = boost::chrono::thread_clock::now();
 

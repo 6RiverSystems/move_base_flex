@@ -52,6 +52,11 @@
 #include <nav_core/base_local_planner.h>
 #include <nav_core/recovery_behavior.h>
 
+#include <base_local_planner/SpeedLimitManagerConfig.h>
+#include <base_local_planner/ObstacleSpeedLimiterConfig.h>
+#include <base_local_planner/ExternalSpeedLimiterConfig.h>
+#include <base_local_planner/PathSpeedLimiterConfig.h>
+#include <base_local_planner/ShadowSpeedLimiterConfig.h>
 #include "mbf_costmap_nav/MoveBaseFlexConfig.h"
 #include "mbf_costmap_nav/costmap_planner_execution.h"
 #include "mbf_costmap_nav/costmap_controller_execution.h"
@@ -225,6 +230,12 @@ private:
    */
   void reconfigure(mbf_costmap_nav::MoveBaseFlexConfig &config, uint32_t level);
 
+  /**
+   * @brief Publishes ready signal for move base flex.
+   * @param signal determine ready status of move base flex is true or false
+   */
+  void publishReadySignal(bool signal);
+
   pluginlib::ClassLoader<mbf_costmap_core::CostmapRecovery> recovery_plugin_loader_;
   pluginlib::ClassLoader<nav_core::RecoveryBehavior> nav_core_recovery_plugin_loader_;
   pluginlib::ClassLoader<mbf_costmap_core::CostmapController> controller_plugin_loader_;
@@ -244,6 +255,12 @@ private:
   //! true, if the dynamic reconfigure has been setup
   bool setup_reconfigure_;
 
+  boost::shared_ptr<dynamic_reconfigure::Server<base_local_planner::SpeedLimitManagerConfig>> speedLimiterConfigServer_;
+  boost::shared_ptr<dynamic_reconfigure::Server<base_local_planner::ObstacleSpeedLimiterConfig>> speedLimiterObstacleConfigServer_;
+  boost::shared_ptr<dynamic_reconfigure::Server<base_local_planner::PathSpeedLimiterConfig>> speedLimiterPathConfigServer_;
+  boost::shared_ptr<dynamic_reconfigure::Server<base_local_planner::ExternalSpeedLimiterConfig>> speedLimiterExternalConfigServer_;
+  boost::shared_ptr<dynamic_reconfigure::Server<base_local_planner::ShadowSpeedLimiterConfig>> speedLimiterShadowConfigServer_;
+
   //! Shared pointer to the common local costmap
   const CostmapWrapper::Ptr local_costmap_ptr_;
 
@@ -261,6 +278,9 @@ private:
 
   //! Service Server for the clear_costmap service
   ros::ServiceServer clear_costmaps_srv_;
+
+  // publisher for ready state
+  ros::Publisher ready_publisher_;
 };
 
 } /* namespace mbf_costmap_nav */

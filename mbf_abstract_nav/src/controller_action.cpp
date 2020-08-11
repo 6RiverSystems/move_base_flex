@@ -202,6 +202,8 @@ void ControllerAction::run(GoalHandle &goal_handle, AbstractControllerExecution 
         fillExePathResult(mbf_msgs::ExePathResult::CANCELED, "Controller canceled", result);
         goal_handle.setCanceled(result, result.message);
         controller_active = false;
+        execution.stop();
+        execution.publishZeroVelocity();
         break;
 
       case AbstractControllerExecution::STARTED:
@@ -220,7 +222,7 @@ void ControllerAction::run(GoalHandle &goal_handle, AbstractControllerExecution 
         break;
 
       case AbstractControllerExecution::MAX_RETRIES:
-        ROS_WARN_STREAM_NAMED(name_, "The controller has been aborted after it exceeded the maximum number of retries!");
+        ROS_DEBUG_STREAM_NAMED(name_, "The controller has been aborted after it exceeded the maximum number of retries!");
         controller_active = false;
         fillExePathResult(execution.getOutcome(), execution.getMessage(), result);
         goal_handle.setAborted(result, result.message);
@@ -345,7 +347,7 @@ void ControllerAction::publishExePathFeedback(
     feedback.last_cmd_vel.header.stamp = ros::Time::now();
 
   feedback.current_pose = robot_pose_;
-  feedback.dist_to_goal = static_cast<float>(mbf_utility::distance(robot_pose_, goal_pose_));
+  feedback.dist_to_goal = calculateGlobalPathLengthLeft(goal_handle);
   feedback.angle_to_goal = static_cast<float>(mbf_utility::angle(robot_pose_, goal_pose_));
   goal_handle.publishFeedback(feedback);
 }
@@ -361,4 +363,39 @@ void ControllerAction::fillExePathResult(
   result.angle_to_goal = static_cast<float>(mbf_utility::angle(robot_pose_, goal_pose_));
 }
 
-} /* mbf_abstract_nav */
+float ControllerAction::calculateGlobalPathLengthLeft(
+  GoalHandle& goal_handle)
+{
+
+  const mbf_msgs::ExePathGoal &goal = *(goal_handle.getGoal().get());
+  const std::vector<geometry_msgs::PoseStamped> &plan = goal.path.poses;
+  unsigned int planSize = plan.size();
+  if (planSize == 0) {
+    return 0;
+  }
+  else if (planSize == 1) {
+    return static_cast<float>(mbf_utility::distance(plan[0], robot_pose_));
+  }
+  else {
+    int closest_point_index = 0;
+    float closest_distance_to_robot = std::numeric_limits<float>::max(); //max distance
+    
+    //find closest point
+    for(int i = 0; i < planSize - 1; i++){
+      float distance_to_robot = static_cast<float>(mbf_utility::distance(plan[i], robot_pose_));
+      if(distance_to_robot < closest_distance_to_robot){
+        closest_distance_to_robot = distance_to_robot;
+        closest_point_index = i;
+      }
+    }
+    float plan_distance = 0;
+    for(int i = closest_point_index; i < planSize - 2; i++){
+      plan_distance += static_cast<float>(mbf_utility::distance(plan[i], plan[i+1]));
+    }
+    return plan_distance;
+  }
+
+}
+
+}
+

@@ -192,6 +192,11 @@ namespace mbf_abstract_nav
      */
     bool isMoving();
 
+    /**
+     * publishes a velocity command with zero values to stop the robot.
+     */
+    void publishZeroVelocity();
+
   protected:
 
     /**
@@ -253,12 +258,6 @@ namespace mbf_abstract_nav
     virtual bool safetyCheck() { return true; };
 
   private:
-
-
-    /**
-     * @brief Publishes a velocity command with zero values to stop the robot.
-     */
-    void publishZeroVelocity();
 
     /**
      * @brief Checks whether the goal has been reached in the range of tolerance or not
@@ -364,6 +363,12 @@ namespace mbf_abstract_nav
 
     //! replaces parameter angle_tolerance_ for the action
     double action_angle_tolerance_;
+    //! desired processor affinity of the thread
+    int thread_affinity_;
+
+    //! desired processor niceness of the thread
+    int thread_nice_;
+
   };
 
 } /* namespace mbf_abstract_nav */
