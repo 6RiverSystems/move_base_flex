@@ -107,10 +107,6 @@ install(DIRECTORY include/${PROJECT_NAME}/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
 )
 
-install(DIRECTORY config/
-	DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/config
-)
-
-install(PROGRAMS scripts/move_base_legacy_relay.py
+catkin_install_python(PROGRAMS scripts/move_base_legacy_relay.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
