@@ -55,6 +55,7 @@ void ControllerAction::start(
     typename AbstractControllerExecution::Ptr execution_ptr
 )
 {
+  boost::lock_guard<boost::recursive_mutex> guard(slot_map_mtx_);
   if(goal_handle.getGoalStatus().status == actionlib_msgs::GoalStatus::RECALLING)
   {
     goal_handle.setCanceled();
@@ -64,7 +65,6 @@ void ControllerAction::start(
   uint8_t slot = goal_handle.getGoal()->concurrency_slot;
 
   bool update_plan = false;
-  slot_map_mtx_.lock();
   std::map<uint8_t, ConcurrencySlot>::iterator slot_it = concurrency_slots_.find(slot);
   if(slot_it != concurrency_slots_.end())
   {
@@ -84,7 +84,6 @@ void ControllerAction::start(
       concurrency_slots_[slot].goal_handle.setAccepted();
     }
   }
-  slot_map_mtx_.unlock();
   if(!update_plan)
   {
       // Otherwise run parent version of this method
