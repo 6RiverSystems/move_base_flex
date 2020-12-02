@@ -55,7 +55,9 @@ void ControllerAction::start(
     typename AbstractControllerExecution::Ptr execution_ptr
 )
 {
+  ROS_ERROR("MLB: ControllerAction::start %s", goal_handle.getGoalID().id.c_str());
   boost::lock_guard<boost::recursive_mutex> guard(slot_map_mtx_);
+  ROS_ERROR("MLB: ControllerAction::start %s -- acquired lock", goal_handle.getGoalID().id.c_str());
   if(goal_handle.getGoalStatus().status == actionlib_msgs::GoalStatus::RECALLING)
   {
     goal_handle.setCanceled();
@@ -66,7 +68,7 @@ void ControllerAction::start(
 
   bool update_plan = false;
   std::map<uint8_t, ConcurrencySlot>::iterator slot_it = concurrency_slots_.find(slot);
-  if(slot_it != concurrency_slots_.end())
+  if(slot_it != concurrency_slots_.end() && slot_it->second.in_use)
   {
     boost::lock_guard<boost::mutex> goal_guard(goal_mtx_);
     if(slot_it->second.execution->getName() == goal_handle.getGoal()->controller ||
@@ -77,6 +79,9 @@ void ControllerAction::start(
       // we update the goal handle and pass the new plan to the execution without stopping it
       execution_ptr = slot_it->second.execution;
       execution_ptr->setNewPlan(goal_handle.getGoal()->path.poses);
+      // Update also goal pose, so the feedback remains consistent
+      goal_pose_ = goal_handle.getGoal()->path.poses.back();
+
       mbf_msgs::ExePathResult result;
       fillExePathResult(mbf_msgs::ExePathResult::CANCELED, "Goal preempted by a new plan", result);
       concurrency_slots_[slot].goal_handle.setCanceled(result, result.message);
@@ -129,6 +134,8 @@ void ControllerAction::run(GoalHandle &goal_handle, AbstractControllerExecution 
     goal_handle.setAborted(result, result.message);
     ROS_ERROR_STREAM_NAMED(name_, result.message << " Canceling the action call.");
     controller_active = false;
+    goal_mtx_.unlock();
+    return;
   }
 
   goal_pose_ = plan.back();

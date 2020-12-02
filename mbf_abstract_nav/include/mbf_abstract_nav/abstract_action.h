@@ -54,8 +54,9 @@ class AbstractAction
   typedef boost::function<void (GoalHandle &goal_handle, Execution &execution)> RunMethod;
   typedef struct{
     typename Execution::Ptr execution;
-    boost::thread* thread_ptr;
+    boost::thread* thread_ptr = nullptr;
     GoalHandle goal_handle;
+    bool in_use = false;
   } ConcurrencySlot;
 
 
@@ -65,12 +66,26 @@ class AbstractAction
       const RunMethod run_method
   ) : name_(name), robot_info_(robot_info), run_(run_method){}
 
+  virtual ~AbstractAction()
+  {
+    // cleanup threads used on executions
+    boost::lock_guard<boost::recursive_mutex> guard(slot_map_mtx_);
+    typename std::map<uint8_t, ConcurrencySlot>::iterator slot_it = concurrency_slots_.begin();
+    for (; slot_it != concurrency_slots_.end(); ++slot_it)
+    {
+      threads_.remove_thread(slot_it->second.thread_ptr);
+      delete slot_it->second.thread_ptr;
+    }
+  }
+
   virtual void start(
       GoalHandle &goal_handle,
       typename Execution::Ptr execution_ptr
   )
   {
+    ROS_ERROR("MLB: AbstractAction::start - goal id: %s", goal_handle.getGoalID().id.c_str());
     boost::lock_guard<boost::recursive_mutex> guard(slot_map_mtx_);
+    ROS_ERROR("MLB: AbstractAction::start - goal id: %s -- acquired lock", goal_handle.getGoalID().id.c_str());
     uint8_t slot = goal_handle.getGoal()->concurrency_slot;
 
     if(goal_handle.getGoalStatus().status == actionlib_msgs::GoalStatus::RECALLING)
@@ -80,7 +95,7 @@ class AbstractAction
     else {
       typename std::map<uint8_t, ConcurrencySlot>::iterator slot_it =
           concurrency_slots_.find(slot);
-      if (slot_it != concurrency_slots_.end()) {
+      if (slot_it != concurrency_slots_.end() && slot_it->second.in_use) {
         // if there is a plugin running on the same slot, cancel it
         slot_it->second.execution->cancel();
         if (slot_it->second.thread_ptr->joinable()) {
@@ -89,17 +104,25 @@ class AbstractAction
       }
 
       // fill concurrency slot with the new goal handle, execution, and working thread
+      concurrency_slots_[slot].in_use = true;
       concurrency_slots_[slot].goal_handle = goal_handle;
       concurrency_slots_[slot].goal_handle.setAccepted();
       concurrency_slots_[slot].execution = execution_ptr;
-      concurrency_slots_[slot].thread_ptr = threads_.create_thread(boost::bind(
-          &AbstractAction::runAndCleanUp, this,
-          boost::ref(concurrency_slots_[slot].goal_handle), execution_ptr));
+      if (concurrency_slots_[slot].thread_ptr) {
+        // cleanup previous execution; otherwise we will leak threads
+        threads_.remove_thread(concurrency_slots_[slot].thread_ptr);
+        delete concurrency_slots_[slot].thread_ptr;
+      }
+
+      concurrency_slots_[slot].thread_ptr =
+        threads_.create_thread(boost::bind(&AbstractAction::run, this, boost::ref(concurrency_slots_[slot])));
     }
   }
 
   virtual void cancel(GoalHandle &goal_handle){
+    ROS_ERROR("MLB: AbstractAction::cancel - goal id: %s", goal_handle.getGoalID().id.c_str());
     boost::lock_guard<boost::recursive_mutex> guard(slot_map_mtx_);
+    ROS_ERROR("MLB: AbstractAction::cancel - goal id: %s -- acquired lock", goal_handle.getGoalID().id.c_str());
 
     uint8_t slot = goal_handle.getGoal()->concurrency_slot;
     typename std::map<uint8_t, ConcurrencySlot>::iterator slot_it = concurrency_slots_.find(slot);
@@ -109,28 +132,34 @@ class AbstractAction
     }
   }
 
-  virtual void runAndCleanUp(GoalHandle &goal_handle, typename Execution::Ptr execution_ptr){
-    uint8_t slot = goal_handle.getGoal()->concurrency_slot;
+  virtual void run(ConcurrencySlot &slot) {
+    ROS_ERROR("MLB: AbstractAction::run - goal id: %s", slot.goal_handle.getGoalID().id.c_str());
+    ROS_ERROR("MLB: AbstractAction::run - prerun - goal id: %s", slot.goal_handle.getGoalID().id.c_str());
+    slot.execution->preRun();
+    
+    ROS_ERROR("MLB: AbstractAction::run - run - goal id: %s", slot.goal_handle.getGoalID().id.c_str());
+    run_(slot.goal_handle, *slot.execution);
 
-    execution_ptr->preRun();
-    run_(goal_handle, *execution_ptr);
     ROS_DEBUG_STREAM_NAMED(name_, "Finished action \"" << name_ << "\" run method, waiting for execution thread to finish.");
-    execution_ptr->join();
-    ROS_DEBUG_STREAM_NAMED(name_, "Execution thread for action \"" << name_ << "\" stopped, cleaning up execution leftovers.");
-    boost::lock_guard<boost::recursive_mutex> guard(slot_map_mtx_);
-    ROS_DEBUG_STREAM_NAMED(name_, "Exiting run method with goal status "
-                           << (int)concurrency_slots_[slot].goal_handle.getGoalStatus().status
-                           << ": "<< concurrency_slots_[slot].goal_handle.getGoalStatus().text);
-    threads_.remove_thread(concurrency_slots_[slot].thread_ptr);
-    delete concurrency_slots_[slot].thread_ptr;
-    concurrency_slots_.erase(slot);
-    execution_ptr->postRun();
+    
+    ROS_ERROR("MLB: AbstractAction::run - join thread - goal id: %s", slot.goal_handle.getGoalID().id.c_str());
+    slot.execution->join();
+
+    ROS_DEBUG_STREAM_NAMED(name_, "Execution completed with goal status "
+                               << (int)slot.goal_handle.getGoalStatus().status << ": "<< slot.goal_handle.getGoalStatus().text);
+
+    ROS_ERROR("MLB: AbstractAction::run - finished join - goal id: %s", slot.goal_handle.getGoalID().id.c_str());
+
+    slot.execution->postRun();
+    slot.in_use = false;
   }
 
   virtual void reconfigureAll(
       mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level)
   {
+    ROS_ERROR("MLB: AbstractAction::reconfigureAll");
     boost::lock_guard<boost::recursive_mutex> guard(slot_map_mtx_);
+    ROS_ERROR("MLB: AbstractAction::reconfigureAll -- acquired lock");
 
     typename std::map<uint8_t, ConcurrencySlot>::iterator iter;
     for(iter = concurrency_slots_.begin(); iter != concurrency_slots_.end(); ++iter)
@@ -141,7 +170,9 @@ class AbstractAction
 
   virtual void cancelAll()
   {
+    ROS_ERROR("MLB: AbstractAction::cancelAll");
     boost::lock_guard<boost::recursive_mutex> guard(slot_map_mtx_);
+    ROS_ERROR("MLB: AbstractAction::cancelAll -- acquired lock");
     ROS_INFO_STREAM_NAMED(name_, "Cancel all goals for \"" << name_ << "\".");
     typename std::map<uint8_t, ConcurrencySlot>::iterator iter;
     for(iter = concurrency_slots_.begin(); iter != concurrency_slots_.end(); ++iter)
