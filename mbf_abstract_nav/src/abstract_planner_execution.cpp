@@ -67,7 +67,7 @@ AbstractPlannerExecution::~AbstractPlannerExecution()
 }
 
 
-double AbstractPlannerExecution::getCost()
+double AbstractPlannerExecution::getCost() const
 {
   boost::lock_guard<boost::mutex> guard(plan_mtx_);
   // copy plan and costs to output
@@ -78,7 +78,7 @@ double AbstractPlannerExecution::getCost()
     double cost = 0;
 
     geometry_msgs::PoseStamped prev_pose = plan_.front();
-    for(std::vector<geometry_msgs::PoseStamped>::iterator iter = plan_.begin() + 1; iter != plan_.end(); ++iter)
+    for(std::vector<geometry_msgs::PoseStamped>::const_iterator iter = plan_.begin() + 1; iter != plan_.end(); ++iter)
     {
       cost += mbf_utility::distance(prev_pose, *iter);
       prev_pose = *iter;
@@ -104,33 +104,37 @@ void AbstractPlannerExecution::reconfigure(const MoveBaseFlexConfig &config)
 }
 
 
-typename AbstractPlannerExecution::PlanningState AbstractPlannerExecution::getState()
+typename AbstractPlannerExecution::PlanningState AbstractPlannerExecution::getState() const
 {
   boost::lock_guard<boost::mutex> guard(state_mtx_);
   return state_;
 }
 
-void AbstractPlannerExecution::setState(PlanningState state)
+void AbstractPlannerExecution::setState(PlanningState state, bool signalling)
 {
   boost::lock_guard<boost::mutex> guard(state_mtx_);
   state_ = state;
+
+  // some states are quiet, most aren't
+  if(signalling)
+    condition_.notify_all();
 }
 
 
-ros::Time AbstractPlannerExecution::getLastValidPlanTime()
+ros::Time AbstractPlannerExecution::getLastValidPlanTime() const
 {
   boost::lock_guard<boost::mutex> guard(plan_mtx_);
   return last_valid_plan_time_;
 }
 
 
-bool AbstractPlannerExecution::isPatienceExceeded()
+bool AbstractPlannerExecution::isPatienceExceeded() const
 {
   return !patience_.isZero() && (ros::Time::now() - last_call_start_time_ > patience_);
 }
 
 
-std::vector<geometry_msgs::PoseStamped> AbstractPlannerExecution::getPlan()
+std::vector<geometry_msgs::PoseStamped> AbstractPlannerExecution::getPlan() const
 {
   boost::lock_guard<boost::mutex> guard(plan_mtx_);
   // copy plan and costs to output
@@ -182,8 +186,8 @@ bool AbstractPlannerExecution::start(const geometry_msgs::PoseStamped &start,
   goal_ = goal;
   tolerance_ = tolerance;
 
-  geometry_msgs::Point s = start.pose.position;
-  geometry_msgs::Point g = goal.pose.position;
+  const geometry_msgs::Point& s = start.pose.position;
+  const geometry_msgs::Point& g = goal.pose.position;
 
   ROS_DEBUG_STREAM("Start planning from the start pose: (" << s.x << ", " << s.y << ", " << s.z << ")"
                                  << " to the goal pose: ("<< g.x << ", " << g.y << ", " << g.z << ")");
@@ -265,7 +269,7 @@ void AbstractPlannerExecution::run()
         current_start = start_;
         ROS_INFO_STREAM("A new start pose is available. Planning with the new start pose!");
         exceeded = false;
-        geometry_msgs::Point s = start_.pose.position;
+        const geometry_msgs::Point& s = start_.pose.position;
         ROS_INFO_STREAM("New planning start pose: (" << s.x << ", " << s.y << ", " << s.z << ")");
       }
       if (has_new_goal_)
@@ -276,7 +280,7 @@ void AbstractPlannerExecution::run()
         ROS_INFO_STREAM("A new goal pose is available. Planning with the new goal pose and the tolerance: "
                         << current_tolerance);
         exceeded = false;
-        geometry_msgs::Point g = goal_.pose.position;
+        const geometry_msgs::Point& g = goal_.pose.position;
         ROS_INFO_STREAM("New goal pose: (" << g.x << ", " << g.y << ", " << g.z << ")");
       }
 
@@ -284,7 +288,7 @@ void AbstractPlannerExecution::run()
 
       // unlock goal
       goal_start_mtx_.unlock();
-      setState(PLANNING);
+      setState(PLANNING, false);
       if (make_plan)
       {
         outcome_ = makePlan(current_start, current_goal, current_tolerance, plan, cost, message_);
@@ -294,10 +298,9 @@ void AbstractPlannerExecution::run()
 
         if (cancel_ && !isPatienceExceeded())
         {
-          setState(CANCELED);
           ROS_INFO_STREAM("The planner \"" << name_ << "\" has been canceled!"); // but not due to patience exceeded
           planning_ = false;
-          condition_.notify_all();
+          setState(CANCELED, true);
         }
         else if (success)
         {
@@ -307,20 +310,18 @@ void AbstractPlannerExecution::run()
 
           plan_mtx_.lock();
           plan_ = plan;
+          // todo compute the cost once!
           cost_ = cost;
           last_valid_plan_time_ = ros::Time::now();
           plan_mtx_.unlock();
-          setState(FOUND_PLAN);
-
-          condition_.notify_all(); // notify observer
+          setState(FOUND_PLAN, true);
         }
         else if (max_retries_ >= 0 && ++retries > max_retries_)
         {
           ROS_INFO_STREAM("Planning reached max retries! (" << max_retries_ << ")");
-          setState(MAX_RETRIES);
           exceeded = true;
           planning_ = false;
-          condition_.notify_all(); // notify observer
+          setState(MAX_RETRIES, true);
         }
         else if (isPatienceExceeded())
         {
@@ -330,18 +331,16 @@ void AbstractPlannerExecution::run()
           // old nav_core-based planners do not support canceling), and we add here the fact to the log for info
           ROS_INFO_STREAM("Planning patience (" << patience_.toSec() << "s) has been exceeded"
                                                 << (cancel_ ? "; planner canceled!" : ""));
-          setState(PAT_EXCEEDED);
           exceeded = true;
           planning_ = false;
-          condition_.notify_all(); // notify observer
+          setState(PAT_EXCEEDED, true);
         }
         else if (max_retries_ == 0 && patience_.isZero())
         {
           ROS_INFO_STREAM("Planning could not find a plan!");
           exceeded = true;
-          setState(NO_PLAN_FOUND);
-          condition_.notify_all(); // notify observer
           planning_ = false;
+          setState(NO_PLAN_FOUND, true);
         }
         else
         {
@@ -352,9 +351,8 @@ void AbstractPlannerExecution::run()
       else if (cancel_)
       {
         ROS_INFO_STREAM("The global planner has been canceled!");
-        setState(CANCELED);
         planning_ = false;
-        condition_.notify_all();
+        setState(CANCELED, true);
       }
     } // while (planning_ && ros::ok())
   }
@@ -362,15 +360,13 @@ void AbstractPlannerExecution::run()
   {
     // Planner thread interrupted; probably we have exceeded planner patience
     ROS_WARN_STREAM("Planner thread interrupted!");
-    setState(STOPPED);
-    condition_.notify_all(); // notify observer
     planning_ = false;
+    setState(STOPPED, true);
   }
   catch (...)
   {
     ROS_FATAL_STREAM("Unknown error occurred: " << boost::current_exception_diagnostic_information());
-    setState(INTERNAL_ERROR);
-    condition_.notify_all();
+    setState(INTERNAL_ERROR, true);
   }
 }
 

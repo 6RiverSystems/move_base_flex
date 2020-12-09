@@ -111,7 +111,7 @@ private:
    */
   virtual mbf_abstract_nav::AbstractPlannerExecution::Ptr newPlannerExecution(
       const std::string &plugin_name,
-      const mbf_abstract_core::AbstractPlanner::Ptr plugin_ptr);
+      const mbf_abstract_core::AbstractPlanner::Ptr &plugin_ptr);
 
   /**
    * @brief Create a new controller execution.
@@ -121,7 +121,7 @@ private:
    */
   virtual mbf_abstract_nav::AbstractControllerExecution::Ptr newControllerExecution(
       const std::string &plugin_name,
-      const mbf_abstract_core::AbstractController::Ptr plugin_ptr);
+      const mbf_abstract_core::AbstractController::Ptr &plugin_ptr);
 
   /**
    * @brief Create a new recovery behavior execution.
@@ -131,7 +131,7 @@ private:
    */
   virtual mbf_abstract_nav::AbstractRecoveryExecution::Ptr newRecoveryExecution(
       const std::string &plugin_name,
-      const mbf_abstract_core::AbstractRecovery::Ptr plugin_ptr);
+      const mbf_abstract_core::AbstractRecovery::Ptr &plugin_ptr);
 
   /**
    * @brief Loads the plugin associated with the given planner_type parameter.

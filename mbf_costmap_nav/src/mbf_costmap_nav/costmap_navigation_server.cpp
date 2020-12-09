@@ -128,7 +128,7 @@ void CostmapNavigationServer::publishReadySignal(bool signal){
 
 mbf_abstract_nav::AbstractPlannerExecution::Ptr CostmapNavigationServer::newPlannerExecution(
     const std::string &plugin_name,
-    const mbf_abstract_core::AbstractPlanner::Ptr plugin_ptr)
+    const mbf_abstract_core::AbstractPlanner::Ptr &plugin_ptr)
 {
   return boost::make_shared<mbf_costmap_nav::CostmapPlannerExecution>(
       plugin_name,
@@ -139,7 +139,7 @@ mbf_abstract_nav::AbstractPlannerExecution::Ptr CostmapNavigationServer::newPlan
 
 mbf_abstract_nav::AbstractControllerExecution::Ptr CostmapNavigationServer::newControllerExecution(
     const std::string &plugin_name,
-    const mbf_abstract_core::AbstractController::Ptr plugin_ptr)
+    const mbf_abstract_core::AbstractController::Ptr &plugin_ptr)
 {
   return boost::make_shared<mbf_costmap_nav::CostmapControllerExecution>(
       plugin_name,
@@ -153,7 +153,7 @@ mbf_abstract_nav::AbstractControllerExecution::Ptr CostmapNavigationServer::newC
 
 mbf_abstract_nav::AbstractRecoveryExecution::Ptr CostmapNavigationServer::newRecoveryExecution(
     const std::string &plugin_name,
-    const mbf_abstract_core::AbstractRecovery::Ptr plugin_ptr)
+    const mbf_abstract_core::AbstractRecovery::Ptr &plugin_ptr)
 {
   return boost::make_shared<mbf_costmap_nav::CostmapRecoveryExecution>(
       plugin_name,
@@ -419,8 +419,7 @@ bool CostmapNavigationServer::callServiceCheckPointCost(mbf_msgs::CheckPoint::Re
   std::string costmap_frame = costmap->getGlobalFrameID();
 
   geometry_msgs::PointStamped point;
-  if (! mbf_utility::transformPoint(*tf_listener_ptr_, costmap_frame, request.point.header.stamp,
-                                     ros::Duration(0.5), request.point, global_frame_, point))
+  if (!mbf_utility::transformPoint(*tf_listener_ptr_, costmap_frame, ros::Duration(0.5), request.point, point))
   {
     ROS_ERROR_STREAM("Transform target point to " << costmap_name << " frame '" << costmap_frame << "' failed");
     return false;
@@ -499,7 +498,7 @@ bool CostmapNavigationServer::callServiceCheckPoseCost(mbf_msgs::CheckPose::Requ
   geometry_msgs::PoseStamped pose;
   if (request.current_pose)
   {
-    if (! mbf_utility::getRobotPose(*tf_listener_ptr_, robot_frame_, costmap_frame, ros::Duration(0.5), pose))
+    if (!mbf_utility::getRobotPose(*tf_listener_ptr_, robot_frame_, costmap_frame, ros::Duration(0.5), pose))
     {
       ROS_ERROR_STREAM("Get robot pose on " << costmap_name << " frame '" << costmap_frame << "' failed");
       return false;
@@ -507,8 +506,7 @@ bool CostmapNavigationServer::callServiceCheckPoseCost(mbf_msgs::CheckPose::Requ
   }
   else
   {
-    if (! mbf_utility::transformPose(*tf_listener_ptr_, costmap_frame, request.pose.header.stamp,
-                                     ros::Duration(0.5), request.pose, global_frame_, pose))
+    if (!mbf_utility::transformPose(*tf_listener_ptr_, costmap_frame, ros::Duration(0.5), request.pose, pose))
     {
       ROS_ERROR_STREAM("Transform target pose to " << costmap_name << " frame '" << costmap_frame << "' failed");
       return false;
@@ -643,8 +641,7 @@ bool CostmapNavigationServer::callServiceCheckPathCost(mbf_msgs::CheckPath::Requ
   {
     response.last_checked = i;
 
-    if (! mbf_utility::transformPose(*tf_listener_ptr_, costmap_frame, request.path.header.stamp,
-                                     ros::Duration(0.5), request.path.poses[i], global_frame_, pose))
+    if (!mbf_utility::transformPose(*tf_listener_ptr_, costmap_frame, ros::Duration(0.5), request.path.poses[i], pose))
     {
       ROS_ERROR_STREAM("Transform target pose to " << costmap_name << " frame '" << costmap_frame << "' failed");
       return false;
