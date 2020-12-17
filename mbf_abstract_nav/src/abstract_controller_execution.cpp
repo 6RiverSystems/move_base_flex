@@ -257,7 +257,7 @@ namespace mbf_abstract_nav
     {
       if (setThreadAffinity(thread_affinity_))
       {
-        ROS_INFO("Set controller thread affinity to %d", thread_affinity_);
+        ROS_DEBUG("Set controller thread affinity to %d", thread_affinity_);
       }
       else
       {
