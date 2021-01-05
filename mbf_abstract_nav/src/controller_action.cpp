@@ -203,7 +203,6 @@ void ControllerAction::run(GoalHandle &goal_handle, AbstractControllerExecution 
         goal_handle.setCanceled(result, result.message);
         controller_active = false;
         execution.stop();
-        execution.publishZeroVelocity();
         break;
 
       case AbstractControllerExecution::STARTED:
