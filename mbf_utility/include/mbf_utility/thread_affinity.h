@@ -16,6 +16,7 @@
 #include <sys/resource.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <ros/ros.h>
 
 #ifndef _GNU_SOURCE
 	#define _GNU_SOURCE

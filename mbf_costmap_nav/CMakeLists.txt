@@ -5,6 +5,7 @@ set (CMAKE_CXX_STANDARD 11)
 
 find_package(catkin REQUIRED
   COMPONENTS
+  base_local_planner
   costmap_2d
   dynamic_reconfigure
   geometry_msgs
@@ -37,6 +38,7 @@ catkin_package(
   CATKIN_DEPENDS
   actionlib
   actionlib_msgs
+  base_local_planner
   costmap_2d
   dynamic_reconfigure
   geometry_msgs
