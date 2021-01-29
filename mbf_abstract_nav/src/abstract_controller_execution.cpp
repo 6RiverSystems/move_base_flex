@@ -265,6 +265,8 @@ bool AbstractControllerExecution::reachedGoalCheck()
 
 bool AbstractControllerExecution::cancel()
 {
+  ROS_ERROR_STREAM("MBF: AbstractControllerExecution::cancel");
+
   // request the controller to cancel; it returns false if cancel is not implemented or rejected by the plugin
   if (!controller_->cancel())
   {
@@ -321,13 +323,17 @@ void AbstractControllerExecution::run()
 
       if (cancel_)
       {
+        ROS_ERROR_STREAM("MBF: AbstractControllerExecution::run - got inside cancel");
         if (force_stop_on_cancel_)
         {
+          ROS_ERROR_STREAM("MBF: AbstractControllerExecution::run - forcing stop");
           publishZeroVelocity(); // command the robot to stop on canceling navigation
         }
+        ROS_ERROR_STREAM("MBF: AbstractControllerExecution::run - set canceled state");
         setState(CANCELED);
         condition_.notify_all();
         moving_ = false;
+        ROS_ERROR_STREAM("MBF: AbstractControllerExecution::run - cancel done. return");
         return;
       }
 
