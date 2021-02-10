@@ -265,8 +265,6 @@ bool AbstractControllerExecution::reachedGoalCheck()
 
 bool AbstractControllerExecution::cancel()
 {
-  ROS_ERROR_STREAM("MBF: AbstractControllerExecution::cancel");
-
   // request the controller to cancel; it returns false if cancel is not implemented or rejected by the plugin
   if (!controller_->cancel())
   {
