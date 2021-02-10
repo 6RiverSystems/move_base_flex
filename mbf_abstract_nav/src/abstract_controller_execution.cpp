@@ -293,7 +293,7 @@ void AbstractControllerExecution::run()
   {
     if (setThreadAffinity(thread_affinity_))
     {
-      ROS_INFO("Set controller thread affinity to %d", thread_affinity_);
+      ROS_DEBUG("Set controller thread affinity to %d", thread_affinity_);
     }
     else
     {
@@ -323,17 +323,13 @@ void AbstractControllerExecution::run()
 
       if (cancel_)
       {
-        ROS_ERROR_STREAM("MBF: AbstractControllerExecution::run - got inside cancel");
         if (force_stop_on_cancel_)
         {
-          ROS_ERROR_STREAM("MBF: AbstractControllerExecution::run - forcing stop");
           publishZeroVelocity(); // command the robot to stop on canceling navigation
         }
-        ROS_ERROR_STREAM("MBF: AbstractControllerExecution::run - set canceled state");
         setState(CANCELED);
         condition_.notify_all();
         moving_ = false;
-        ROS_ERROR_STREAM("MBF: AbstractControllerExecution::run - cancel done. return");
         return;
       }
 
