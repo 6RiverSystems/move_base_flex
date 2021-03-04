@@ -47,7 +47,7 @@ RecoveryAction::RecoveryAction(const std::string &name, const RobotInformation &
 
 void RecoveryAction::run(GoalHandle &goal_handle, AbstractRecoveryExecution &execution)
 {
-  ROS_DEBUG_STREAM_NAMED(name_, "Start action "  << name_);
+  ROS_INFO_STREAM_NAMED(name_, "Start action "  << name_);
 
   const mbf_msgs::RecoveryGoal &goal = *(goal_handle.getGoal().get());
   mbf_msgs::RecoveryResult result;

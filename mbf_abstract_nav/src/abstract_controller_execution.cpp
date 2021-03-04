@@ -333,7 +333,7 @@ namespace mbf_abstract_nav
         // ask planner if the goal is reached
         if (reachedGoalCheck())
         {
-          ROS_DEBUG_STREAM_NAMED("abstract_controller_execution", "Reached the goal!");
+          ROS_INFO_STREAM_NAMED("abstract_controller_execution", "Reached the goal!");
           setState(ARRIVED_GOAL);
           publishZeroVelocity();   // send a 0 velocity to make sure the robot is stopped
 
@@ -419,7 +419,7 @@ namespace mbf_abstract_nav
     {
       // Controller thread interrupted; in most cases we have started a new plan
       // Can also be that robot is oscillating or we have exceeded planner patience
-      ROS_WARN_STREAM("Controller thread interrupted!");
+      ROS_INFO_STREAM("Controller thread interrupted!");
       publishZeroVelocity();
       setState(STOPPED);
       condition_.notify_all();
