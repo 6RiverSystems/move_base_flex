@@ -42,12 +42,13 @@
 
 #include "mbf_abstract_nav/planner_action.h"
 
-namespace mbf_abstract_nav{
+namespace mbf_abstract_nav
+{
 
 PlannerAction::PlannerAction(
     const std::string &name,
-    const RobotInformation &robot_info)
-  : AbstractAction(name, robot_info, boost::bind(&mbf_abstract_nav::PlannerAction::run, this, _1, _2)), path_seq_count_(0)
+    const mbf_utility::RobotInformation &robot_info)
+  : AbstractActionBase(name, robot_info, boost::bind(&mbf_abstract_nav::PlannerAction::run, this, _1, _2)), path_seq_count_(0)
 {
   ros::NodeHandle private_nh("~");
   // informative topics: current navigation goal
@@ -146,12 +147,7 @@ void PlannerAction::run(GoalHandle &goal_handle, AbstractPlannerExecution &execu
         if (execution.isPatienceExceeded())
         {
           ROS_INFO_STREAM_NAMED(name_, "Global planner patience has been exceeded! Cancel planning...");
-          if (!execution.cancel())
-          {
-            ROS_WARN_STREAM_THROTTLE_NAMED(2.0, name_, "Cancel planning failed or is not supported; "
-                "must wait until current plan finish!");
-            execution.stop(); // try to interrupt planning.
-          }
+          execution.cancel();
         }
         else
         {
@@ -274,8 +270,8 @@ bool PlannerAction::transformPlanToGlobalFrame(
   for (iter = plan.begin(); iter != plan.end(); ++iter)
   {
     geometry_msgs::PoseStamped global_pose;
-    tf_success = mbf_utility::transformPose(robot_info_.getTransformListener(), robot_info_.getGlobalFrame(), iter->header.stamp,
-                                            robot_info_.getTfTimeout(), *iter, robot_info_.getGlobalFrame(), global_pose);
+    tf_success = mbf_utility::transformPose(robot_info_.getTransformListener(), robot_info_.getGlobalFrame(),
+                                            robot_info_.getTfTimeout(), *iter, global_pose);
     if (!tf_success)
     {
       ROS_ERROR_STREAM("Can not transform pose from the \"" << iter->header.frame_id << "\" frame into the \""
@@ -288,4 +284,3 @@ bool PlannerAction::transformPlanToGlobalFrame(
 }
 
 } /* namespace mbf_abstract_nav */
-

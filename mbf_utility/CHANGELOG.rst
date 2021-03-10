@@ -2,6 +2,30 @@
 Changelog for package mbf_utility
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.3.4 (2020-12-02)
+------------------
+
+0.3.3 (2020-11-05)
+------------------
+* fix controller fails if robot pose gets older than tf_timeout
+* Make reference symbol position consistent across the project
+* Move RobotInformation to mbf_utility, as it can be used generally
+
+0.3.2 (2020-05-25)
+------------------
+* Remove dependency on base_local_planner and move FootprintHelper class to mbf_costmap_nav and make it static
+
+0.3.1 (2020-04-07)
+------------------
+
+0.3.0 (2020-03-31)
+------------------
+* Add exception classes for get_path, exe_path and recovery
+* unify license declaration to BSD-3
+
+0.2.5 (2019-10-11)
+------------------
+
 0.2.4 (2019-06-16)
 ------------------
 * Add check_point_cost service

@@ -44,8 +44,8 @@ namespace mbf_nav_core_wrapper
 {
 
 uint32_t WrapperLocalPlanner::computeVelocityCommands(
-    const geometry_msgs::PoseStamped& robot_pose,
-    const geometry_msgs::TwistStamped& robot_velocity,
+    const geometry_msgs::PoseStamped &robot_pose,
+    const geometry_msgs::TwistStamped &robot_velocity,
     geometry_msgs::TwistStamped &cmd_vel,
     std::string &message)
 {
@@ -71,7 +71,8 @@ bool WrapperLocalPlanner::setPlan(const std::vector<geometry_msgs::PoseStamped> 
 
 bool WrapperLocalPlanner::cancel()
 {
-  return false;
+  ROS_INFO_STREAM("Calling cancel on wrapped navigation plugin");
+  return nav_core_plugin_->cancel();
 }
 
 void WrapperLocalPlanner::initialize(std::string name,

@@ -52,17 +52,17 @@
 #include <nav_core/base_local_planner.h>
 #include <nav_core/recovery_behavior.h>
 
-#include <base_local_planner/SpeedLimitManagerConfig.h>
-#include <base_local_planner/ObstacleSpeedLimiterConfig.h>
-#include <base_local_planner/ExternalSpeedLimiterConfig.h>
-#include <base_local_planner/PathSpeedLimiterConfig.h>
-#include <base_local_planner/ShadowSpeedLimiterConfig.h>
 #include "mbf_costmap_nav/MoveBaseFlexConfig.h"
 #include "mbf_costmap_nav/costmap_planner_execution.h"
 #include "mbf_costmap_nav/costmap_controller_execution.h"
 #include "mbf_costmap_nav/costmap_recovery_execution.h"
 #include "mbf_costmap_nav/costmap_wrapper.h"
 
+#include <base_local_planner/SpeedLimitManagerConfig.h>
+#include <base_local_planner/ObstacleSpeedLimiterConfig.h>
+#include <base_local_planner/ExternalSpeedLimiterConfig.h>
+#include <base_local_planner/PathSpeedLimiterConfig.h>
+#include <base_local_planner/ShadowSpeedLimiterConfig.h>
 
 namespace mbf_costmap_nav
 {
@@ -111,7 +111,7 @@ private:
    */
   virtual mbf_abstract_nav::AbstractPlannerExecution::Ptr newPlannerExecution(
       const std::string &plugin_name,
-      const mbf_abstract_core::AbstractPlanner::Ptr plugin_ptr);
+      const mbf_abstract_core::AbstractPlanner::Ptr &plugin_ptr);
 
   /**
    * @brief Create a new controller execution.
@@ -121,7 +121,7 @@ private:
    */
   virtual mbf_abstract_nav::AbstractControllerExecution::Ptr newControllerExecution(
       const std::string &plugin_name,
-      const mbf_abstract_core::AbstractController::Ptr plugin_ptr);
+      const mbf_abstract_core::AbstractController::Ptr &plugin_ptr);
 
   /**
    * @brief Create a new recovery behavior execution.
@@ -131,14 +131,14 @@ private:
    */
   virtual mbf_abstract_nav::AbstractRecoveryExecution::Ptr newRecoveryExecution(
       const std::string &plugin_name,
-      const mbf_abstract_core::AbstractRecovery::Ptr plugin_ptr);
+      const mbf_abstract_core::AbstractRecovery::Ptr &plugin_ptr);
 
   /**
    * @brief Loads the plugin associated with the given planner_type parameter.
    * @param planner_type The type of the planner plugin to load.
    * @return true, if the local planner plugin was successfully loaded.
    */
-  virtual mbf_abstract_core::AbstractPlanner::Ptr loadPlannerPlugin(const std::string& planner_type);
+  virtual mbf_abstract_core::AbstractPlanner::Ptr loadPlannerPlugin(const std::string &planner_type);
 
   /**
    * @brief Initializes the controller plugin with its name and pointer to the costmap
@@ -147,8 +147,8 @@ private:
    * @return true if init succeeded, false otherwise
    */
   virtual bool initializePlannerPlugin(
-      const std::string& name,
-      const mbf_abstract_core::AbstractPlanner::Ptr& planner_ptr
+      const std::string &name,
+      const mbf_abstract_core::AbstractPlanner::Ptr &planner_ptr
   );
 
   /**
@@ -157,7 +157,7 @@ private:
    * @return A shared pointer to a new loaded controller, if the controller plugin was loaded successfully,
    *         an empty pointer otherwise.
    */
-  virtual mbf_abstract_core::AbstractController::Ptr loadControllerPlugin(const std::string& controller_type);
+  virtual mbf_abstract_core::AbstractController::Ptr loadControllerPlugin(const std::string &controller_type);
 
   /**
    * @brief Initializes the controller plugin with its name, a pointer to the TransformListener
@@ -167,8 +167,8 @@ private:
    * @return true if init succeeded, false otherwise
    */
   virtual bool initializeControllerPlugin(
-      const std::string& name,
-      const mbf_abstract_core::AbstractController::Ptr& controller_ptr
+      const std::string &name,
+      const mbf_abstract_core::AbstractController::Ptr &controller_ptr
   );
 
   /**
@@ -176,7 +176,7 @@ private:
    * @param recovery_name The name of the Recovery plugin
    * @return A shared pointer to a Recovery plugin, if the plugin was loaded successfully, an empty pointer otherwise.
    */
-  virtual mbf_abstract_core::AbstractRecovery::Ptr loadRecoveryPlugin(const std::string& recovery_type);
+  virtual mbf_abstract_core::AbstractRecovery::Ptr loadRecoveryPlugin(const std::string &recovery_type);
 
   /**
    * @brief Initializes a recovery behavior plugin with its name and pointers to the global and local costmaps
@@ -185,8 +185,8 @@ private:
    * @return true if init succeeded, false otherwise
    */
   virtual bool initializeRecoveryPlugin(
-      const std::string& name,
-      const mbf_abstract_core::AbstractRecovery::Ptr& behavior_ptr);
+      const std::string &name,
+      const mbf_abstract_core::AbstractRecovery::Ptr &behavior_ptr);
 
   /**
    * @brief Callback method for the check_point_cost service

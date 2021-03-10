@@ -36,22 +36,22 @@
  *
  */
 
-#ifndef MBF_ABSTRACT_NAV__ROBOT_INFORMATION_H_
-#define MBF_ABSTRACT_NAV__ROBOT_INFORMATION_H_
+#ifndef MBF_UTILITY__ROBOT_INFORMATION_H_
+#define MBF_UTILITY__ROBOT_INFORMATION_H_
 
 #include <boost/shared_ptr.hpp>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TwistStamped.h>
 #include <ros/duration.h>
 #include <string>
-#include <tf/transform_listener.h>
 
-#include <mbf_utility/types.h>
+#include "mbf_utility/types.h"
 
-namespace mbf_abstract_nav{
+namespace mbf_utility
+{
 
-class RobotInformation{
-
+class RobotInformation
+{
  public:
 
   typedef boost::shared_ptr<RobotInformation> Ptr;
@@ -62,6 +62,11 @@ class RobotInformation{
       const std::string &robot_frame,
       const ros::Duration &tf_timeout);
 
+  /**
+   * @brief Computes the current robot pose (robot_frame_) in the global frame (global_frame_).
+   * @param robot_pose Reference to the robot_pose message object to be filled.
+   * @return true, if the current robot pose could be computed, false otherwise.
+   */
   bool getRobotPose(geometry_msgs::PoseStamped &robot_pose) const;
 
   bool getRobotVelocity(geometry_msgs::TwistStamped &robot_velocity, ros::Duration look_back_duration) const;
@@ -85,5 +90,6 @@ class RobotInformation{
 
 };
 
-}
-#endif //MBF_ABSTRACT_NAV__ROBOT_INFORMATION_H_
+} /* mbf_utility */
+
+#endif /* MBF_UTILITY__ROBOT_INFORMATION_H_ */

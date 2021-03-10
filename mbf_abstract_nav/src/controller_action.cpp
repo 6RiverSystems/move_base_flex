@@ -40,13 +40,13 @@
 
 #include "mbf_abstract_nav/controller_action.h"
 
-namespace mbf_abstract_nav{
-
+namespace mbf_abstract_nav
+{
 
 ControllerAction::ControllerAction(
     const std::string &action_name,
-    const RobotInformation &robot_info)
-    : AbstractAction(action_name, robot_info, boost::bind(&mbf_abstract_nav::ControllerAction::run, this, _1, _2))
+    const mbf_utility::RobotInformation &robot_info)
+    : AbstractActionBase(action_name, robot_info, boost::bind(&mbf_abstract_nav::ControllerAction::run, this, _1, _2))
 {
 }
 
@@ -66,17 +66,23 @@ void ControllerAction::start(
   bool update_plan = false;
   slot_map_mtx_.lock();
   std::map<uint8_t, ConcurrencySlot>::iterator slot_it = concurrency_slots_.find(slot);
-  if(slot_it != concurrency_slots_.end())
+  if(slot_it != concurrency_slots_.end() && slot_it->second.in_use)
   {
     boost::lock_guard<boost::mutex> goal_guard(goal_mtx_);
     if(slot_it->second.execution->getName() == goal_handle.getGoal()->controller ||
        goal_handle.getGoal()->controller.empty())
     {
       update_plan = true;
-      // Goal requests to run the same controller on the same concurrency slot:
-      // we update the goal handle and pass the new plan to the execution without stopping it
+      // Goal requests to run the same controller on the same concurrency slot already in use:
+      // we update the goal handle and pass the new plan and tolerances from the action to the
+      // execution without stopping it
       execution_ptr = slot_it->second.execution;
-      execution_ptr->setNewPlan(goal_handle.getGoal()->path.poses);
+      execution_ptr->setNewPlan(goal_handle.getGoal()->path.poses,
+                                goal_handle.getGoal()->tolerance_from_action,
+                                goal_handle.getGoal()->dist_tolerance,
+                                goal_handle.getGoal()->angle_tolerance);
+      // Update also goal pose, so the feedback remains consistent
+      goal_pose_ = goal_handle.getGoal()->path.poses.back();
       mbf_msgs::ExePathResult result;
       fillExePathResult(mbf_msgs::ExePathResult::CANCELED, "Goal preempted by a new plan", result);
       concurrency_slots_[slot].goal_handle.setCanceled(result, result.message);
@@ -87,8 +93,8 @@ void ControllerAction::start(
   slot_map_mtx_.unlock();
   if(!update_plan)
   {
-      // Otherwise run parent version of this method
-      AbstractAction::start(goal_handle, execution_ptr);
+    // Otherwise run parent version of this method
+    AbstractActionBase::start(goal_handle, execution_ptr);
   }
 }
 
@@ -130,6 +136,8 @@ void ControllerAction::run(GoalHandle &goal_handle, AbstractControllerExecution 
     goal_handle.setAborted(result, result.message);
     ROS_ERROR_STREAM_NAMED(name_, result.message << " Canceling the action call.");
     controller_active = false;
+    goal_mtx_.unlock();
+    return;
   }
 
   goal_pose_ = plan.back();
@@ -177,13 +185,16 @@ void ControllerAction::run(GoalHandle &goal_handle, AbstractControllerExecution 
     switch (state_moving_input)
     {
       case AbstractControllerExecution::INITIALIZED:
-        execution.setNewPlan(plan);
+        execution.setNewPlan(plan, goal.tolerance_from_action, goal.dist_tolerance, goal.angle_tolerance);
         execution.start();
         break;
 
       case AbstractControllerExecution::STOPPED:
-        ROS_WARN_STREAM_NAMED(name_, "The controller has been stopped!");
+        ROS_WARN_STREAM_NAMED(name_, "The controller has been stopped rigorously!");
         controller_active = false;
+        result.outcome = mbf_msgs::ExePathResult::STOPPED;
+        result.message = "Controller has been stopped!";
+        goal_handle.setAborted(result, result.message);
         break;
 
       case AbstractControllerExecution::CANCELED:
@@ -192,25 +203,20 @@ void ControllerAction::run(GoalHandle &goal_handle, AbstractControllerExecution 
         goal_handle.setCanceled(result, result.message);
         controller_active = false;
         execution.stop();
-        execution.publishZeroVelocity();
         break;
 
       case AbstractControllerExecution::STARTED:
         ROS_DEBUG_STREAM_NAMED(name_, "The moving has been started!");
         break;
 
-        // in progress
       case AbstractControllerExecution::PLANNING:
         if (execution.isPatienceExceeded())
         {
-          ROS_INFO_STREAM_NAMED(name_, "The controller patience has been exceeded! Stopping controller...");
-          // TODO planner is stuck, but we don't have currently any way to cancel it!
-          // We will try to stop the thread, but does nothing with DWA, TR or TEB controllers
-          // Note that this is not the same situation as in case AbstractControllerExecution::PAT_EXCEEDED,
-          // as there is the controller itself reporting that it cannot find a valid command after trying
-          // for more than patience seconds. But after stopping controller execution, it should ideally
-          // report PAT_EXCEEDED as his state on next iteration.
-          execution.stop();
+          ROS_INFO_STREAM("Try to cancel the plugin \"" << name_ << "\" after the patience time has been exceeded!");
+          if (execution.cancel())
+          {
+            ROS_INFO_STREAM("Successfully canceled the plugin \"" << name_ << "\" after the patience time has been exceeded!");
+          }
         }
         break;
 
@@ -268,7 +274,8 @@ void ControllerAction::run(GoalHandle &goal_handle, AbstractControllerExecution 
           {
             ROS_WARN_STREAM_NAMED(name_, "The controller is oscillating for "
                 << (ros::Time::now() - last_oscillation_reset).toSec() << "s");
-            execution.stop();
+
+            execution.cancel();
             controller_active = false;
             fillExePathResult(mbf_msgs::ExePathResult::OSCILLATION, "Oscillation detected!", result);
             goal_handle.setAborted(result, result.message);
@@ -326,9 +333,9 @@ void ControllerAction::run(GoalHandle &goal_handle, AbstractControllerExecution 
 }
 
 void ControllerAction::publishExePathFeedback(
-        GoalHandle& goal_handle,
+        GoalHandle &goal_handle,
         uint32_t outcome, const std::string &message,
-        const geometry_msgs::TwistStamped& current_twist)
+        const geometry_msgs::TwistStamped &current_twist)
 {
   mbf_msgs::ExePathFeedback feedback;
   feedback.outcome = outcome;
@@ -371,7 +378,7 @@ float ControllerAction::calculateGlobalPathLengthLeft(
   else {
     int closest_point_index = 0;
     float closest_distance_to_robot = std::numeric_limits<float>::max(); //max distance
-    
+
     //find closest point
     for(int i = 0; i < planSize - 1; i++){
       float distance_to_robot = static_cast<float>(mbf_utility::distance(plan[i], robot_pose_));
@@ -389,5 +396,4 @@ float ControllerAction::calculateGlobalPathLengthLeft(
 
 }
 
-}
-
+} /* mbf_abstract_nav */

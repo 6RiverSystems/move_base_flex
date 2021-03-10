@@ -38,10 +38,10 @@
  *
  */
 
+#include <tf/tf.h>
 #include <nav_msgs/Path.h>
 #include <geometry_msgs/PoseArray.h>
 #include <std_msgs/Bool.h>
-#include <base_local_planner/footprint_helper.h>
 #include <mbf_msgs/MoveBaseAction.h>
 #include <mbf_abstract_nav/MoveBaseFlexConfig.h>
 #include <actionlib/client/simple_action_client.h>
@@ -49,6 +49,7 @@
 #include <nav_core_wrapper/wrapper_local_planner.h>
 #include <nav_core_wrapper/wrapper_recovery_behavior.h>
 
+#include "mbf_costmap_nav/footprint_helper.h"
 #include "mbf_costmap_nav/costmap_navigation_server.h"
 
 namespace mbf_costmap_nav
@@ -107,6 +108,15 @@ CostmapNavigationServer::CostmapNavigationServer(const TFPtr &tf_listener_ptr) :
 
 CostmapNavigationServer::~CostmapNavigationServer()
 {
+  // remove every plugin before its classLoader goes out of scope.
+  controller_plugin_manager_.clearPlugins();
+  planner_plugin_manager_.clearPlugins();
+  recovery_plugin_manager_.clearPlugins();
+
+  action_server_recovery_ptr_.reset();
+  action_server_exe_path_ptr_.reset();
+  action_server_get_path_ptr_.reset();
+  action_server_move_base_ptr_.reset();
 }
 
 void CostmapNavigationServer::publishReadySignal(bool signal){
@@ -117,7 +127,7 @@ void CostmapNavigationServer::publishReadySignal(bool signal){
 
 mbf_abstract_nav::AbstractPlannerExecution::Ptr CostmapNavigationServer::newPlannerExecution(
     const std::string &plugin_name,
-    const mbf_abstract_core::AbstractPlanner::Ptr plugin_ptr)
+    const mbf_abstract_core::AbstractPlanner::Ptr &plugin_ptr)
 {
   return boost::make_shared<mbf_costmap_nav::CostmapPlannerExecution>(
       plugin_name,
@@ -128,7 +138,7 @@ mbf_abstract_nav::AbstractPlannerExecution::Ptr CostmapNavigationServer::newPlan
 
 mbf_abstract_nav::AbstractControllerExecution::Ptr CostmapNavigationServer::newControllerExecution(
     const std::string &plugin_name,
-    const mbf_abstract_core::AbstractController::Ptr plugin_ptr)
+    const mbf_abstract_core::AbstractController::Ptr &plugin_ptr)
 {
   return boost::make_shared<mbf_costmap_nav::CostmapControllerExecution>(
       plugin_name,
@@ -142,7 +152,7 @@ mbf_abstract_nav::AbstractControllerExecution::Ptr CostmapNavigationServer::newC
 
 mbf_abstract_nav::AbstractRecoveryExecution::Ptr CostmapNavigationServer::newRecoveryExecution(
     const std::string &plugin_name,
-    const mbf_abstract_core::AbstractRecovery::Ptr plugin_ptr)
+    const mbf_abstract_core::AbstractRecovery::Ptr &plugin_ptr)
 {
   return boost::make_shared<mbf_costmap_nav::CostmapRecoveryExecution>(
       plugin_name,
@@ -153,7 +163,7 @@ mbf_abstract_nav::AbstractRecoveryExecution::Ptr CostmapNavigationServer::newRec
       last_config_);
 }
 
-mbf_abstract_core::AbstractPlanner::Ptr CostmapNavigationServer::loadPlannerPlugin(const std::string& planner_type)
+mbf_abstract_core::AbstractPlanner::Ptr CostmapNavigationServer::loadPlannerPlugin(const std::string &planner_type)
 {
   mbf_abstract_core::AbstractPlanner::Ptr planner_ptr;
   try
@@ -186,8 +196,8 @@ mbf_abstract_core::AbstractPlanner::Ptr CostmapNavigationServer::loadPlannerPlug
 }
 
 bool CostmapNavigationServer::initializePlannerPlugin(
-    const std::string& name,
-    const mbf_abstract_core::AbstractPlanner::Ptr& planner_ptr
+    const std::string &name,
+    const mbf_abstract_core::AbstractPlanner::Ptr &planner_ptr
 )
 {
   mbf_costmap_core::CostmapPlanner::Ptr costmap_planner_ptr
@@ -206,7 +216,7 @@ bool CostmapNavigationServer::initializePlannerPlugin(
 }
 
 
-mbf_abstract_core::AbstractController::Ptr CostmapNavigationServer::loadControllerPlugin(const std::string& controller_type)
+mbf_abstract_core::AbstractController::Ptr CostmapNavigationServer::loadControllerPlugin(const std::string &controller_type)
 {
   mbf_abstract_core::AbstractController::Ptr controller_ptr;
   try
@@ -238,8 +248,8 @@ mbf_abstract_core::AbstractController::Ptr CostmapNavigationServer::loadControll
 }
 
 bool CostmapNavigationServer::initializeControllerPlugin(
-    const std::string& name,
-    const mbf_abstract_core::AbstractController::Ptr& controller_ptr)
+    const std::string &name,
+    const mbf_abstract_core::AbstractController::Ptr &controller_ptr)
 {
   ROS_DEBUG_STREAM("Initialize controller \"" << name << "\".");
 
@@ -263,7 +273,7 @@ bool CostmapNavigationServer::initializeControllerPlugin(
 }
 
 mbf_abstract_core::AbstractRecovery::Ptr CostmapNavigationServer::loadRecoveryPlugin(
-    const std::string& recovery_type)
+    const std::string &recovery_type)
 {
   mbf_abstract_core::AbstractRecovery::Ptr recovery_ptr;
 
@@ -300,8 +310,8 @@ mbf_abstract_core::AbstractRecovery::Ptr CostmapNavigationServer::loadRecoveryPl
 }
 
 bool CostmapNavigationServer::initializeRecoveryPlugin(
-    const std::string& name,
-    const mbf_abstract_core::AbstractRecovery::Ptr& behavior_ptr)
+    const std::string &name,
+    const mbf_abstract_core::AbstractRecovery::Ptr &behavior_ptr)
 {
   ROS_DEBUG_STREAM("Initialize recovery behavior \"" << name << "\".");
 
@@ -361,12 +371,12 @@ void CostmapNavigationServer::reconfigure(mbf_costmap_nav::MoveBaseFlexConfig &c
   abstract_config.planner_patience = config.planner_patience;
   abstract_config.planner_max_retries = config.planner_max_retries;
   abstract_config.planner_thread_affinity = config.planner_thread_affinity;
-  abstract_config.planner_thread_nice = config.planner_thread_nice;
+  abstract_config.planner_thread_nice = config.planner_thread_nice;  
   abstract_config.controller_frequency = config.controller_frequency;
   abstract_config.controller_patience = config.controller_patience;
   abstract_config.controller_max_retries = config.controller_max_retries;
   abstract_config.controller_thread_affinity = config.controller_thread_affinity;
-  abstract_config.controller_thread_nice = config.controller_thread_nice;
+  abstract_config.controller_thread_nice = config.controller_thread_nice;  
   abstract_config.recovery_enabled = config.recovery_enabled;
   abstract_config.recovery_patience = config.recovery_patience;
   abstract_config.oscillation_timeout = config.oscillation_timeout;
@@ -408,8 +418,7 @@ bool CostmapNavigationServer::callServiceCheckPointCost(mbf_msgs::CheckPoint::Re
   std::string costmap_frame = costmap->getGlobalFrameID();
 
   geometry_msgs::PointStamped point;
-  if (! mbf_utility::transformPoint(*tf_listener_ptr_, costmap_frame, request.point.header.stamp,
-                                     ros::Duration(0.5), request.point, global_frame_, point))
+  if (!mbf_utility::transformPoint(*tf_listener_ptr_, costmap_frame, ros::Duration(0.5), request.point, point))
   {
     ROS_ERROR_STREAM("Transform target point to " << costmap_name << " frame '" << costmap_frame << "' failed");
     return false;
@@ -488,7 +497,7 @@ bool CostmapNavigationServer::callServiceCheckPoseCost(mbf_msgs::CheckPose::Requ
   geometry_msgs::PoseStamped pose;
   if (request.current_pose)
   {
-    if (! mbf_utility::getRobotPose(*tf_listener_ptr_, robot_frame_, costmap_frame, ros::Duration(0.5), pose))
+    if (!mbf_utility::getRobotPose(*tf_listener_ptr_, robot_frame_, costmap_frame, ros::Duration(0.5), pose))
     {
       ROS_ERROR_STREAM("Get robot pose on " << costmap_name << " frame '" << costmap_frame << "' failed");
       return false;
@@ -496,8 +505,7 @@ bool CostmapNavigationServer::callServiceCheckPoseCost(mbf_msgs::CheckPose::Requ
   }
   else
   {
-    if (! mbf_utility::transformPose(*tf_listener_ptr_, costmap_frame, request.pose.header.stamp,
-                                     ros::Duration(0.5), request.pose, global_frame_, pose))
+    if (!mbf_utility::transformPose(*tf_listener_ptr_, costmap_frame, ros::Duration(0.5), request.pose, pose))
     {
       ROS_ERROR_STREAM("Transform target pose to " << costmap_name << " frame '" << costmap_frame << "' failed");
       return false;
@@ -515,10 +523,9 @@ bool CostmapNavigationServer::callServiceCheckPoseCost(mbf_msgs::CheckPose::Requ
   std::vector<geometry_msgs::Point> footprint = costmap->getUnpaddedRobotFootprint();
   costmap_2d::padFootprint(footprint, request.safety_dist);
 
-  // use a footprint helper instance to get all the cells totally or partially within footprint polygon
-  base_local_planner::FootprintHelper fph;
-  std::vector<base_local_planner::Position2DInt> footprint_cells =
-    fph.getFootprintCells(Eigen::Vector3f(x, y, yaw), footprint, *costmap->getCostmap(), true);
+  // use footprint helper to get all the cells totally or partially within footprint polygon
+  std::vector<Cell> footprint_cells =
+    FootprintHelper::getFootprintCells(x, y, yaw, footprint, *costmap->getCostmap(), true);
   response.state = mbf_msgs::CheckPose::Response::FREE;
   if (footprint_cells.empty())
   {
@@ -548,7 +555,8 @@ bool CostmapNavigationServer::callServiceCheckPoseCost(mbf_msgs::CheckPose::Requ
           response.state = std::max(response.state, static_cast<uint8_t>(mbf_msgs::CheckPose::Response::INSCRIBED));
           response.cost += cost * (request.inscrib_cost_mult ? request.inscrib_cost_mult : 1.0);
           break;
-        default:response.cost += cost;
+        default:
+          response.cost += cost;
           break;
       }
     }
@@ -599,9 +607,10 @@ bool CostmapNavigationServer::callServiceCheckPathCost(mbf_msgs::CheckPath::Requ
       costmap = global_costmap_ptr_;
       costmap_name = "global costmap";
       break;
-    default:ROS_ERROR_STREAM("No valid costmap provided; options are "
-                             << mbf_msgs::CheckPath::Request::LOCAL_COSTMAP << ": local costmap, "
-                             << mbf_msgs::CheckPath::Request::GLOBAL_COSTMAP << ": global costmap");
+    default:
+      ROS_ERROR_STREAM("No valid costmap provided; options are "
+                       << mbf_msgs::CheckPath::Request::LOCAL_COSTMAP << ": local costmap, "
+                       << mbf_msgs::CheckPath::Request::GLOBAL_COSTMAP << ": global costmap");
       return false;
   }
 
@@ -610,9 +619,6 @@ bool CostmapNavigationServer::callServiceCheckPathCost(mbf_msgs::CheckPath::Requ
 
   // get target pose or current robot pose as x, y, yaw coordinates
   std::string costmap_frame = costmap->getGlobalFrameID();
-
-  // use a footprint helper instance to get all the cells totally or partially within footprint polygon
-  base_local_planner::FootprintHelper fph;
 
   std::vector<geometry_msgs::Point> footprint;
   if (!request.path_cells_only)
@@ -634,8 +640,7 @@ bool CostmapNavigationServer::callServiceCheckPathCost(mbf_msgs::CheckPath::Requ
   {
     response.last_checked = i;
 
-    if (! mbf_utility::transformPose(*tf_listener_ptr_, costmap_frame, request.path.header.stamp,
-                                     ros::Duration(0.5), request.path.poses[i], global_frame_, pose))
+    if (!mbf_utility::transformPose(*tf_listener_ptr_, costmap_frame, ros::Duration(0.5), request.path.poses[i], pose))
     {
       ROS_ERROR_STREAM("Transform target pose to " << costmap_name << " frame '" << costmap_frame << "' failed");
       return false;
@@ -644,16 +649,19 @@ bool CostmapNavigationServer::callServiceCheckPathCost(mbf_msgs::CheckPath::Requ
     double x = pose.pose.position.x;
     double y = pose.pose.position.y;
     double yaw = tf::getYaw(pose.pose.orientation);
-    std::vector<base_local_planner::Position2DInt> cells_to_check;
+    std::vector<Cell> cells_to_check;
     if (request.path_cells_only)
     {
-      base_local_planner::Position2DInt cell;
-      if (costmap->getCostmap()->worldToMap(x, y, (unsigned int&)cell.x, (unsigned int&)cell.y))
+      Cell cell;
+      if (costmap->getCostmap()->worldToMap(x, y, cell.x, cell.y))
+      {
         cells_to_check.push_back(cell);  // out of map if false; cells_to_check will be empty
+      }
     }
     else
     {
-      cells_to_check = fph.getFootprintCells(Eigen::Vector3f(x, y, yaw), footprint, *costmap->getCostmap(), true);
+      // use footprint helper to get all the cells totally or partially within footprint polygon
+      cells_to_check = FootprintHelper::getFootprintCells(x, y, yaw, footprint, *costmap->getCostmap(), true);
     }
 
     if (cells_to_check.empty())
