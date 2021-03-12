@@ -2,6 +2,59 @@
 Changelog for package mbf_abstract_nav
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.3.4 (2020-12-02)
+------------------
+
+0.3.3 (2020-11-05)
+------------------
+* On move_base action, handle properly RECALLED, REJECTED and LOST status, see #228
+* Fill recovery result field used_plugin, see #229
+* Signal from setState function, see #236
+* Controller fails if robot pose gets older than tf_timeout, see #231
+* Send move_base result when canceled during exe_path and recovery, see #218
+* On controller cancel, wait for the control loop to stop, see #215
+* Ensure MBF does not crash upon receiving an empty path, see #214
+* Make robot_info a reference to keep one single instance, see #204
+* mbf_abstract_nav action event logging from INFO to DEBUG, see #203
+* Fix deallocation on shutdown by discarding all plugins and resetting action server pointers, see #199
+* Move RobotInformation to mbf_utility, as it can be used generaly, see #196
+
+0.3.2 (2020-05-25)
+------------------
+* Avoid duplicated warn logging output when we cannot cancel a plugin
+* Remove unused methods and attributes from AbstractNavigationServer, which are already present at other places
+* Reuse execution slots; cleanup only at destruction
+* Enable different goal tolerance values for each action
+
+0.3.1 (2020-04-07)
+------------------
+
+0.3.0 (2020-03-31)
+------------------
+* Clean up patience exceeded method
+* Add last valid cmd time as class variable
+* Add started state and improve output messages
+* Unify license declaration to BSD-3
+* Add parameter force_stop_on_cancel to send a zero-speed command on cancelation (default: true)
+* remove explicit boost-exception dependency, Boost >= 1.69 provides exception by default.
+* Allow the user time-consuming cancel implementations
+* Rename abstract_action.h as abstract_action_base.hpp
+* Remane robot_Information.cpp as robot_information.cpp
+* Unify headers definitions and namespace intentation
+* Add parameter to actively stop once the goal is reached
+* Exit immediately from action done callbacks when action_state is CANCELED
+
+0.2.5 (2019-10-11)
+------------------
+* Update goal pose on replanning, so the feedback remains consistent
+* Fix: Reset oscillation timer after executing a recovery behavior
+* Remove debug log messages
+* Do not pass boost functions to abstract server to (de)activate costmaps.
+  Run instead abstract methods (possibly) overridden in the costmap server,
+  all costmap-related handling refactored to a new CostmapWrapper class
+* On controller execution, check that local costmap is current
+* On move_base action, use MoveBaseResult constant to fill outcome in case of oscilation
+
 0.2.4 (2019-06-16)
 ------------------
 * Reduce log verbosity by combining lines and using more DEBUG

@@ -42,11 +42,9 @@
 #define MBF_ABSTRACT_NAV__ABSTRACT_CONTROLLER_EXECUTION_H_
 
 #include <map>
-#include <stdint.h>
 #include <string>
 #include <vector>
 
-#include <tf/transform_listener.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Twist.h>
 
@@ -59,6 +57,7 @@
 
 namespace mbf_abstract_nav
 {
+
 /**
  * @defgroup controller_execution Controller Execution Classes
  * @brief The controller execution classes are derived from the AbstractControllerExecution and extends the
@@ -88,10 +87,10 @@ namespace mbf_abstract_nav
      * @param tf_listener_ptr Shared pointer to a common tf listener
      */
     AbstractControllerExecution(
-        const std::string name,
-        const mbf_abstract_core::AbstractController::Ptr& controller_ptr,
-        const ros::Publisher& vel_pub,
-        const ros::Publisher& goal_pub,
+        const std::string &name,
+        const mbf_abstract_core::AbstractController::Ptr &controller_ptr,
+        const ros::Publisher &vel_pub,
+        const ros::Publisher &goal_pub,
         const TFPtr &tf_listener_ptr,
         const MoveBaseFlexConfig &config);
 
@@ -109,13 +108,21 @@ namespace mbf_abstract_nav
     /**
      * @brief Sets a new plan to the controller execution
      * @param plan A vector of stamped poses.
+     * @param tolerance_from_action flag that will be set to true when the new plan (action) has tolerance
+     * @param action_dist_tolerance distance to goal tolerance specific for this new plan (action)
+     * @param action_angle_tolerance angle to goal tolerance specific for this new plan (action)
      */
-    void setNewPlan(const std::vector<geometry_msgs::PoseStamped> &plan);
+    void setNewPlan(
+      const std::vector<geometry_msgs::PoseStamped> &plan,
+      bool tolerance_from_action = false,
+      double action_dist_tolerance = 1.0,
+      double action_angle_tolerance = 3.1415);
 
     /**
-     * @brief Cancel the planner execution. This calls the cancel method of the planner plugin. This could be useful if the
-     * computation takes too much time.
-     * @return true, if the planner plugin tries / tried to cancel the planning step.
+     * @brief Cancel the controller execution.
+     * This calls the cancel method of the controller plugin, sets the cancel_ flag to true,
+     * and waits for the control loop to stop. Normally called upon aborting the navigation.
+     * @return true, if the control loop stops within a cycle time.
      */
     virtual bool cancel();
 
@@ -187,7 +194,7 @@ namespace mbf_abstract_nav
     bool isMoving();
 
     /**
-     * publishes a velocity command with zero values to stop the robot.
+     * @brief Publishes a velocity command with zero values to stop the robot.
      */
     void publishZeroVelocity();
 
@@ -203,9 +210,9 @@ namespace mbf_abstract_nav
      * @param message Optional more detailed outcome as a string.
      * @return Result code as described on ExePath action result and plugin's header.
      */
-    virtual uint32_t computeVelocityCmd(const geometry_msgs::PoseStamped& pose,
-                                        const geometry_msgs::TwistStamped& velocity,
-                                        geometry_msgs::TwistStamped& vel_cmd, std::string& message);
+    virtual uint32_t computeVelocityCmd(const geometry_msgs::PoseStamped &pose,
+                                        const geometry_msgs::TwistStamped &velocity,
+                                        geometry_msgs::TwistStamped &vel_cmd, std::string &message);
 
     /**
      * @brief Sets the velocity command, to make it available for another thread
@@ -227,6 +234,9 @@ namespace mbf_abstract_nav
 
     //! The time the controller has been started.
     ros::Time start_time_;
+
+    //! The time the controller responded with a success output (output < 10).
+    ros::Time last_valid_cmd_time_;
 
     //! The maximum number of retries
     int max_retries_;
@@ -331,6 +341,12 @@ namespace mbf_abstract_nav
     //! whether move base flex should check for the goal tolerance or not.
     bool mbf_tolerance_check_;
 
+    //! whether move base flex should force the robot to stop once the goal is reached.
+    bool force_stop_at_goal_;
+
+    //! whether move base flex should force the robot to stop on canceling navigation.
+    bool force_stop_on_cancel_;
+
     //! distance tolerance to the given goal pose
     double dist_tolerance_;
 
@@ -340,12 +356,20 @@ namespace mbf_abstract_nav
     //! current robot pose;
     geometry_msgs::PoseStamped robot_pose_;
 
+    //! whether check for action specific tolerance
+    bool tolerance_from_action_;
+
+    //! replaces parameter dist_tolerance_ for the action
+    double action_dist_tolerance_;
+
+    //! replaces parameter angle_tolerance_ for the action
+    double action_angle_tolerance_;
+
     //! desired processor affinity of the thread
     int thread_affinity_;
 
     //! desired processor niceness of the thread
     int thread_nice_;
-
   };
 
 } /* namespace mbf_abstract_nav */

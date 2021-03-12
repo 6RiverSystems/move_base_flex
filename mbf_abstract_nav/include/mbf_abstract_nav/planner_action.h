@@ -41,24 +41,27 @@
 #ifndef MBF_ABSTRACT_NAV__PLANNER_ACTION_H_
 #define MBF_ABSTRACT_NAV__PLANNER_ACTION_H_
 
-#include "mbf_abstract_nav/abstract_action.h"
-#include "mbf_abstract_nav/abstract_planner_execution.h"
-#include "mbf_abstract_nav/robot_information.h"
 #include <actionlib/server/action_server.h>
+
 #include <mbf_msgs/GetPathAction.h>
+#include <mbf_utility/robot_information.h>
+
+#include "mbf_abstract_nav/abstract_action_base.hpp"
+#include "mbf_abstract_nav/abstract_planner_execution.h"
+
 
 namespace mbf_abstract_nav{
 
 
-class PlannerAction : public AbstractAction<mbf_msgs::GetPathAction, AbstractPlannerExecution>
+class PlannerAction : public AbstractActionBase<mbf_msgs::GetPathAction, AbstractPlannerExecution>
 {
  public:
 
   typedef boost::shared_ptr<PlannerAction> Ptr;
 
   PlannerAction(
-      const std::string& name,
-      const RobotInformation &robot_info
+      const std::string &name,
+      const mbf_utility::RobotInformation &robot_info
   );
 
   void run(GoalHandle &goal_handle, AbstractPlannerExecution &execution);
@@ -84,8 +87,6 @@ class PlannerAction : public AbstractAction<mbf_msgs::GetPathAction, AbstractPla
   unsigned int path_seq_count_;
 };
 
+} /* mbf_abstract_nav */
 
-}
-
-
-#endif //MBF_ABSTRACT_NAV__PLANNER_ACTION_H_
+#endif /* MBF_ABSTRACT_NAV__PLANNER_ACTION_H_ */

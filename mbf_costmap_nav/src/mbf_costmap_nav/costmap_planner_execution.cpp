@@ -68,12 +68,12 @@ mbf_abstract_nav::MoveBaseFlexConfig CostmapPlannerExecution::toAbstract(const M
   abstract_config.planner_patience = config.planner_patience;
   abstract_config.planner_max_retries = config.planner_max_retries;
   abstract_config.planner_thread_affinity = config.planner_thread_affinity;
-  abstract_config.planner_thread_nice = config.planner_thread_nice;
+  abstract_config.planner_thread_nice = config.planner_thread_nice; 
   return abstract_config;
 }
 
-uint32_t CostmapPlannerExecution::makePlan(const geometry_msgs::PoseStamped& start,
-                                           const geometry_msgs::PoseStamped& goal,
+uint32_t CostmapPlannerExecution::makePlan(const geometry_msgs::PoseStamped &start,
+                                           const geometry_msgs::PoseStamped &goal,
                                            double tolerance,
                                            std::vector<geometry_msgs::PoseStamped> &plan,
                                            double &cost,
